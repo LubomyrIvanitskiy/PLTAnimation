@@ -59,7 +59,7 @@ import abc
 
 class Episode:
 
-    def __init__(self, start, duration, ax):
+    def __init__(self, duration, ax, start=None):
         self.start = start
         self.duration = duration
         self.ax = ax
@@ -81,6 +81,10 @@ class Episode:
 
     def get_action(self):
         return get_draw2D_action(self.provide_data, type=self.get_plot_type())
+
+    def should_clear(self):
+        # TODO clear when episode finished
+        return False
 
 
 class AnimationHandler:
