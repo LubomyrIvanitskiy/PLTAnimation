@@ -42,8 +42,10 @@ class Episode2(animation_utils.Episode):
 
 
 animation_handler.add_episode(Episode1(0, 30, axes))
+# animation_handler.add_episode(Episode1(5, 30, axes))
+
 animation_handler.hold(15, axes)
-animation_handler.add_episode(Episode2(5, 30, axes))
+# animation_handler.add_episode(Episode2(10, 30, axes))
 
 ani = animation_handler.build_animation(fig)
 html_utils.open_html(html_utils.get_media_table([html_utils.get_html_video(ani), ""]))

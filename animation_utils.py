@@ -135,7 +135,7 @@ class AnimationHandler:
         prev_action = self.actions[-1]
 
         def draw_last_frame(i, duration, frames_passed, ax, last_artists, pen=None):
-            return prev_action.action(prev_action.duration, prev_action.duration, frames_passed, ax, last_artists, pen)
+            return prev_action.action(prev_action.duration-1, prev_action.duration, frames_passed, ax, last_artists, pen)
 
         start = self.frames
         self.frames += hold_duration
@@ -193,23 +193,30 @@ class AnimationHandler:
 
 def _plot_scatter(i, duration, frames_passed, ax, last_artists=None, data_provider=None, pen=None):
     x, y = data_provider(i, duration, frames_passed)
-    if last_artists is not None and isinstance(last_artists, PathCollection) and not pen.is_updated:
+    has_previous_artists = last_artists is not None and isinstance(last_artists, PathCollection)
+    if has_previous_artists:
+        ax.collections.remove(last_artists)
+
+    if has_previous_artists and not pen.is_updated:
         path = last_artists
         points = list(zip(x, y))
         path.set_offsets(points)
     else:
-        ax.collections.clear()
         path = ax.scatter(x, y, **pen.wargs)
     return path
 
 
 def _plot_line(i, duration, frames_passed, ax, last_artists=None, data_provider=None, pen=None):
     x, y = data_provider(i, duration, frames_passed)
-    if last_artists is not None and isinstance(last_artists, Line2D) and not pen.is_updated:
+
+    has_previous_artists = last_artists is not None and isinstance(last_artists, Line2D)
+    if has_previous_artists:
+        ax.lines.remove(last_artists)
+
+    if has_previous_artists and not pen.is_updated:
         line = last_artists
         line.set_data(x, y)
     else:
-        ax.lines.clear()
         line, = ax.plot(x, y, **pen.wargs)
         pen.reset_is_updated()
     return line
@@ -219,7 +226,8 @@ def _fill_between(i, duration, frames_passed, ax, last_artists=None, data_provid
     x, y1, y2 = data_provider(i, duration, frames_passed)
     # The best way is to redraw because updating vertices is too sophisticated especially if some interpolation
     # techniques are used
-    ax.collections.clear()
+    if last_artists is not None:
+        ax.collections.clear.remove(last_artists)
     wargs = pen.wargs if pen else {"color": "blue"}
     poly_collection = ax.fill_between(x, y1, y2, **wargs)
     return poly_collection
