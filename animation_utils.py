@@ -22,7 +22,6 @@ class Action:
         return self.last_artists
 
     def is_time(self, frames_passed):
-
         # if duration==0 we have deal with timeless actions and need to handle them as well
         res = self.duration == 0 and frames_passed == self.start
         res |= self.start <= frames_passed < self.start + self.duration
@@ -67,9 +66,14 @@ class AnimationHandler:
         self.time_ticks = []
         self.dead_actions_count = 0
 
-    def add_action(self, action_lambda, duration, ax, pen=None):
-        start = self.frames
-        self.frames += duration
+    def add_action(self, action_lambda, duration, ax, pen=None, start=None):
+        if not start:
+            start = self.frames
+            self.frames += duration
+        else:
+            action_end = start + duration
+            if action_end > self.frames:
+                self.frames = action_end
         action = Action(action_lambda, start, duration, ax, pen)
         assert action.duration >= 1
         self._add_action(action)

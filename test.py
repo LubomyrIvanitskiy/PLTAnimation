@@ -44,6 +44,7 @@ animation_handler.clear(ax=axes)
 animation_handler.add_action(
     action_lambda=get_draw2D_action(decrease_frequency_data_provider, type="line"),
     pen=animation_utils.Pen(),
+    start=10,
     duration=30,
     ax=axes
 )
