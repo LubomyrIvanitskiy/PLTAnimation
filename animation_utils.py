@@ -4,20 +4,30 @@ from matplotlib.lines import Line2D
 
 class Action:
 
-    def __init__(self, action, duration, ax, pen=None):
+    def __init__(self, action, start, duration, ax, pen=None):
         self.action = action
+        self.start = start
         self.pen = pen
         self.duration = duration
         self.ax = ax
         self.last_artists = None
 
-    def __call__(self, frames_passed, previous_time_tick):
+    def __call__(self, frames_passed):
         if self.pen:
-            self.pen.on_update(frames_passed - previous_time_tick, frames_passed=frames_passed, duration=self.duration,
+            self.pen.on_update(frames_passed - self.start, frames_passed=frames_passed, duration=self.duration,
                                ax=self.ax)
-        self.last_artists = self.action(frames_passed - previous_time_tick, frames_passed=frames_passed, duration=self.duration,
-                           ax=self.ax, last_artists=self.last_artists, pen=self.pen)
+        self.last_artists = self.action(frames_passed - self.start, frames_passed=frames_passed,
+                                        duration=self.duration,
+                                        ax=self.ax, last_artists=self.last_artists, pen=self.pen)
         return self.last_artists
+
+    def is_time(self, frames_passed):
+
+        # if duration==0 we have deal with timeless actions and need to handle them as well
+        res = self.duration == 0 and frames_passed == self.start
+        res |= self.start <= frames_passed < self.start + self.duration
+
+        return res
 
 
 class Pen:
@@ -55,21 +65,12 @@ class AnimationHandler:
         self.interval = interval
         self.actions = []
         self.time_ticks = []
-        self.timeless_actions = {}
-
-    def _register_timeless_action(self, i, action):
-        """
-        Register actions that has no duration
-        :param i: time
-        :return:
-        """
-        actions = self.timeless_actions[i] if i in self.timeless_actions else []
-        actions.append(action)
-        self.timeless_actions[i] = actions
+        self.dead_actions_count = 0
 
     def add_action(self, action_lambda, duration, ax, pen=None):
+        start = self.frames
         self.frames += duration
-        action = Action(action_lambda, duration, ax, pen)
+        action = Action(action_lambda, start, duration, ax, pen)
         assert action.duration >= 1
         self._add_action(action)
 
@@ -85,22 +86,21 @@ class AnimationHandler:
         Stack a frame for number of iterations = duration
         """
         assert len(self.actions) > 0
-        prev_prev_tick = self.time_ticks[-2] if len(self.time_ticks) > 1 else 0
         prev_action = self.actions[-1]
-        prev_tick = self.time_ticks[-1]
-        prev_action_duration = prev_tick - prev_prev_tick
 
         def draw_last_frame(i, duration, frames_passed, ax, last_artists, pen=None):
-            return prev_action.action(prev_action_duration, prev_action_duration, frames_passed, ax, last_artists, pen)
+            return prev_action.action(prev_action.duration, prev_action.duration, frames_passed, ax, last_artists, pen)
 
+        start = self.frames
         self.frames += hold_duration
-        action = Action(draw_last_frame,
-                        hold_duration,
-                        ax,
+        action = Action(action=draw_last_frame,
+                        start=start,
+                        duration=hold_duration,
+                        ax=ax,
                         pen=Pen(
                             prev_action.pen.wargs,
                             handle_update=lambda i, duration, frames_passed, ax, pen:
-                            prev_action.pen.on_update(prev_action_duration, prev_action_duration, frames_passed, ax)
+                            prev_action.pen.on_update(prev_action.duration, prev_action.duration, frames_passed, ax)
                         )
                         )
         self._add_action(action)
@@ -114,26 +114,22 @@ class AnimationHandler:
         def clear(i, duration, frames_passed, ax, last_artists, pen=None):
             ax.lines.clear()
             ax.collections.clear()
-            return []
+            return None
 
-        action = Action(clear, 0, ax)
-        self._register_timeless_action(self.frames, action)
+        action = Action(action=clear, start=self.frames, duration=0, ax=ax)
+        self._add_action(action)
 
     def update(self, frames_passed):
-        prev_time_tick = 0
-        artists = []
-        for action, time_tick in zip(self.actions, self.time_ticks):
-            # Handle timeless actions
-            if frames_passed in self.timeless_actions:
-                timeless_actions = self.timeless_actions[frames_passed]
-                for ta in timeless_actions:
-                    ta(frames_passed, prev_time_tick)
-            if frames_passed < time_tick:
-                # pass relative i
-                artists.append(action(frames_passed, prev_time_tick))
-                return artists
-            else:
-                prev_time_tick = time_tick
+        artists = None
+        for action_index, action in enumerate(self.actions[self.dead_actions_count:]):
+            if action.is_time(frames_passed):
+                if artists is None:
+                    artists = []
+                result = action(frames_passed)
+                if result:
+                    artists.append(result)
+            # else:
+            #     self.dead_actions_count = action_index
         return artists
 
     def build_animation(self, fig):
