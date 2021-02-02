@@ -1,7 +1,7 @@
-from io import BytesIO
 import base64
-import webbrowser
 import os
+import webbrowser
+from io import BytesIO
 
 from matplotlib.animation import FuncAnimation
 

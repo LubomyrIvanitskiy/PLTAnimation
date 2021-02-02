@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib.pyplot as plt
+
 
 def pure_text_label_plot(ax, text, color="black", fontsize=30):
     """

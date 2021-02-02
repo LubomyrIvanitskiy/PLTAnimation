@@ -1,15 +1,13 @@
-from matplotlib.collections import PathCollection, PolyCollection
-from matplotlib.lines import Line2D
-
 import abc
 
 
 class Block:
 
-    def __init__(self, duration, ax, start=None, clear_after_last=False):
+    def __init__(self, duration, ax, start=None, clear_after_last=False, predcessor=None):
         self.start = start
         self.duration = duration
         self.ax = ax
+        self.predcessor = predcessor
         self.last_artists = None
         self.clear_after_last = clear_after_last
 
@@ -33,6 +31,9 @@ class Block:
     def _plot(self, frames_passed):
         i = frames_passed - self.start
         data = self.provide_data(i, self.duration, frames_passed)
+
+        if self.last_artists is None and self.predcessor is not None:
+            self.last_artists = self.predcessor.last_artists
 
         has_previous_artists = self.last_artists is not None
 
@@ -84,6 +85,7 @@ class AnimationHandler:
                 self.frames = action_end
 
         self.blocks.append(block)
+        return block
 
     def update(self, frames_passed):
         artists = None
@@ -107,66 +109,58 @@ class AnimationHandler:
         return ani
 
 
-# <<< Helper methods >>>
+# HELPERS
 
-def _plot_scatter(i, duration, frames_passed, ax, last_artists=None, data_provider=None, pen=None):
-    x, y = data_provider(i, duration, frames_passed)
-    has_previous_artists = last_artists is not None and isinstance(last_artists, PathCollection)
-    if has_previous_artists:
-        ax.collections.remove(last_artists)
 
-    if has_previous_artists and not pen.is_updated:
+class LineBlock(Block):
+
+    @abc.abstractmethod
+    def provide_data(self, i, duration, frames_passed):
+        pass
+
+    def draw_figure(self, i, data, ax, last_artists):
+        x, y = data
+        line, = ax.plot(x, y)
+        return line
+
+    def update_figure(self, i, data, ax, last_artists):
+        if last_artists is None:
+            return super().update_figure(data, ax, last_artists)
+        x, y = data
+        last_artists.set_data(x, y)
+        return last_artists
+
+
+class ScatterBlock(Block):
+
+    @abc.abstractmethod
+    def provide_data(self, i, duration, frames_passed):
+        pass
+
+    def draw_figure(self, i, data, ax, last_artists):
+        x, y = data
+        path = ax.scatter(x, y)
+        return path
+
+    def update_figure(self, i, data, ax, last_artists):
+        if last_artists is None:
+            return super().update_figure(data, ax, last_artists)
         path = last_artists
+        x, y = data
         points = list(zip(x, y))
         path.set_offsets(points)
-    else:
-        path = ax.scatter(x, y, **pen.wargs)
-    return path
+
+        return path
 
 
-def _plot_line(i, duration, frames_passed, ax, last_artists=None, data_provider=None, pen=None):
-    x, y = data_provider(i, duration, frames_passed)
+class FillBlock(Block):
 
-    has_previous_artists = last_artists is not None and isinstance(last_artists, Line2D)
-    if has_previous_artists:
-        ax.lines.remove(last_artists)
+    @abc.abstractmethod
+    def provide_data(self, i, duration, frames_passed):
+        pass
 
-    if has_previous_artists and not pen.is_updated:
-        line = last_artists
-        line.set_data(x, y)
-    else:
-        line, = ax.plot(x, y, **pen.wargs)
-        pen.reset_is_updated()
-    return line
-
-
-def _fill_between(i, duration, frames_passed, ax, last_artists=None, data_provider=None, pen=None):
-    x, y1, y2 = data_provider(i, duration, frames_passed)
-    # The best way is to redraw because updating vertices is too sophisticated especially if some interpolation
-    # techniques are used
-    if last_artists is not None:
-        ax.collections.clear.remove(last_artists)
-    wargs = pen.wargs if pen else {"color": "blue"}
-    poly_collection = ax.fill_between(x, y1, y2, **wargs)
-    return poly_collection
-
-
-def get_draw2D_action(data_provider, type="line"):
-    """
-    :param data_provider: a function that get frame_index and return x and y to be drawn with axes.plot() function
-    :param type: line, scatter, fill_between
-    :return: Action for drawing animation
-    """
-
-    def get_action(method):
-        return lambda i, duration, frames_passed, ax, last_artists, pen: method(i, duration, frames_passed, ax,
-                                                                                last_artists,
-                                                                                data_provider,
-                                                                                pen)
-
-    if type == "scatter":
-        return get_action(_plot_scatter)
-    if type == "fill_between":
-        return get_action(_fill_between)
-    else:
-        return get_action(_plot_line)
+    def draw_figure(self, i, data, ax, last_artists):
+        x, y1, y2 = data
+        self.clear()
+        poly_collection = ax.fill_between(x, y1, y2, color="red")
+        return poly_collection
