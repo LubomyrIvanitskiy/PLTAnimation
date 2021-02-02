@@ -54,6 +54,35 @@ class Pen:
         self.is_updated = False
 
 
+import abc
+
+
+class Episode:
+
+    def __init__(self, start, duration, ax):
+        self.start = start
+        self.duration = duration
+        self.ax = ax
+
+    @abc.abstractmethod
+    def get_plot_type(self):
+        """
+        :return: line, scatter, fill_between
+        """
+        pass
+
+    @abc.abstractmethod
+    def provide_data(self, i, duration, frames_passed):
+        pass
+
+    @abc.abstractmethod
+    def update_figure(self, i, duration, frames_passed, ax, pen: Pen):
+        pass
+
+    def get_action(self):
+        return get_draw2D_action(self.provide_data, type=self.get_plot_type())
+
+
 class AnimationHandler:
     """
     Class for creating actions and stacking them together to be handled sequentially when animation is running
@@ -65,6 +94,19 @@ class AnimationHandler:
         self.actions = []
         self.time_ticks = []
         self.dead_actions_count = 0
+
+    def add_episode(self, episode: Episode):
+        pen = Pen(
+            default_wargs={"color": "green", "alpha": 0.5},
+            handle_update=lambda i, duration, frames_passed, ax, pen: episode.update_figure(i, duration, frames_passed, ax, pen)
+        )
+        self.add_action(
+            action_lambda=episode.get_action(),
+            duration=episode.duration,
+            start=episode.start,
+            pen=pen,
+            ax=episode.ax
+        )
 
     def add_action(self, action_lambda, duration, ax, pen=None, start=None):
         if not start:
