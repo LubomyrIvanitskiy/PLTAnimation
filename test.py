@@ -12,12 +12,17 @@ axes.set_ylim((-1.2, 1.2))
 t = np.linspace(0, 10, 100)
 
 
-def increase_frequency_data_provider(i, duration):
+def increase_frequency_data_provider_for_fill(i, duration, frames_passed):
+    print(f"inc. i={i}, dur={duration}")
+    return t, np.zeros_like(t), np.sin(t * i / duration)
+
+
+def increase_frequency_data_provider(i, duration, frames_passed):
     print(f"inc. i={i}, dur={duration}")
     return t, np.sin(t * i / duration)
 
 
-def decrease_frequency_data_provider(i, duration):
+def decrease_frequency_data_provider(i, duration, frames_passed):
     print(f"dec. i={i}, dur={duration}")
     return t, np.sin(t * (1 - i / duration))
 
@@ -25,14 +30,13 @@ def decrease_frequency_data_provider(i, duration):
 animation_handler = animation_utils.AnimationHandler(interval=200)
 
 animation_handler.add_action(
-    action_lambda=get_draw2D_action(increase_frequency_data_provider, type="scatter"),
+    action_lambda=get_draw2D_action(increase_frequency_data_provider_for_fill, type="fill_between"),
     duration=30,
     ax=axes
 )
 
 animation_handler.hold(hold_duration=15, ax=axes)
 animation_handler.clear(ax=axes)
-
 
 animation_handler.add_action(
     action_lambda=get_draw2D_action(decrease_frequency_data_provider, type="line"),

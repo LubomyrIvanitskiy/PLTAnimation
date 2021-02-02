@@ -1,4 +1,4 @@
-from matplotlib.collections import PathCollection
+from matplotlib.collections import PathCollection, PolyCollection
 from matplotlib.lines import Line2D
 
 
@@ -9,8 +9,9 @@ class Action:
         self.duration = duration
         self.ax = ax
 
-    def __call__(self, i, last_artists):
-        return self.action(i, duration=self.duration, ax=self.ax, last_artists=last_artists)
+    def __call__(self, frames_passed, previous_time_tick, last_artists):
+        return self.action(frames_passed - previous_time_tick, frames_passed=frames_passed, duration=self.duration,
+                           ax=self.ax, last_artists=last_artists)
 
 
 class AnimationHandler:
@@ -59,8 +60,8 @@ class AnimationHandler:
         prev_tick = self.time_ticks[-1]
         prev_action_duration = prev_tick - prev_prev_tick
 
-        def draw_last_frame(i, duration, ax, last_artists):
-            return prev_action.action(prev_action_duration, prev_action_duration, ax, last_artists)
+        def draw_last_frame(i, duration, frames_passed, ax, last_artists):
+            return prev_action.action(prev_action_duration, prev_action_duration, frames_passed, ax, last_artists)
 
         self.frames += hold_duration
         action = Action(draw_last_frame, hold_duration, ax)
@@ -72,7 +73,7 @@ class AnimationHandler:
         """
         assert len(self.actions) > 0
 
-        def clear(i, duration, ax, last_artists):
+        def clear(i, duration, frames_passed, ax, last_artists):
             ax.lines.clear()
             ax.collections.clear()
             return []
@@ -80,18 +81,18 @@ class AnimationHandler:
         action = Action(clear, 0, ax)
         self._register_timeless_action(self.frames, action)
 
-    def update(self, global_tick):
+    def update(self, frames_passed):
         prev_time_tick = 0
         artists = []
         for action, time_tick in zip(self.actions, self.time_ticks):
             # Handle timeless actions
-            if global_tick in self.timeless_actions:
-                timeless_actions = self.timeless_actions[global_tick]
+            if frames_passed in self.timeless_actions:
+                timeless_actions = self.timeless_actions[frames_passed]
                 for ta in timeless_actions:
-                    ta(global_tick - prev_time_tick, self.last_artists)
-            if global_tick < time_tick:
+                    ta(frames_passed, prev_time_tick, self.last_artists)
+            if frames_passed < time_tick:
                 # pass relative i
-                self.last_artists = action(global_tick - prev_time_tick, self.last_artists)
+                self.last_artists = action(frames_passed, prev_time_tick, self.last_artists)
                 artists.append(self.last_artists)
                 return artists
             else:
@@ -111,8 +112,8 @@ class AnimationHandler:
 
 # <<< Helper methods >>>
 
-def _plot_scatter(i, duration, ax, last_artists=None, data_provider=None):
-    x, y = data_provider(i, duration)
+def _plot_scatter(i, duration, frames_passed, ax, last_artists=None, data_provider=None):
+    x, y = data_provider(i, duration, frames_passed)
     if last_artists is not None and isinstance(last_artists, PathCollection):
         path = last_artists
         points = list(zip(x, y))
@@ -123,8 +124,8 @@ def _plot_scatter(i, duration, ax, last_artists=None, data_provider=None):
     return path
 
 
-def _plot_line(i, duration, ax, last_artists=None, data_provider=None):
-    x, y = data_provider(i, duration)
+def _plot_line(i, duration, frames_passed, ax, last_artists=None, data_provider=None):
+    x, y = data_provider(i, duration, frames_passed)
     if last_artists is not None and isinstance(last_artists, Line2D):
         line = last_artists
         line.set_data(x, y)
@@ -134,15 +135,27 @@ def _plot_line(i, duration, ax, last_artists=None, data_provider=None):
     return line
 
 
+def _fill_between(i, duration, frames_passed, ax, last_artists=None, data_provider=None):
+    x, y1, y2 = data_provider(i, duration, frames_passed)
+    # The best way is to redraw because updating vertices is too sophisticated especially if some interpolation
+    # techniques are used
+    ax.collections.clear()
+    poly_collection = ax.fill_between(x, y1, y2, color="blue")
+    return poly_collection
+
+
 def get_draw2D_action(data_provider, type="line"):
     """
     :param data_provider: a function that get frame_index and return x and y to be drawn with axes.plot() function
-    :param type: line, scatter
+    :param type: line, scatter, fill_between
     :return: Action for drawing animation
     """
     if type == "scatter":
-        return lambda i, duration, ax, last_artists: _plot_scatter(i, duration, ax, last_artists,
-                                                                   data_provider)
+        return lambda i, duration, frames_passed, ax, last_artists: _plot_scatter(i, duration, frames_passed, ax, last_artists,
+                                                                                  data_provider)
+    if type == "fill_between":
+        return lambda i, duration, frames_passed, ax, last_artists: _fill_between(i, duration, frames_passed, ax, last_artists,
+                                                                                  data_provider)
     else:
-        return lambda i, duration, ax, last_artists: _plot_line(i, duration, ax, last_artists,
+        return lambda i, duration, ax, frames_passed, last_artists: _plot_line(i, duration, frames_passed, ax, last_artists,
                                                                 data_provider)
