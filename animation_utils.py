@@ -1,24 +1,49 @@
 from matplotlib.collections import PathCollection, PolyCollection
 from matplotlib.lines import Line2D
 
+import abc
 
-class Action:
 
-    def __init__(self, action, start, duration, ax, pen=None):
-        self.action = action
+class Block:
+
+    def __init__(self, duration, ax, start=None, clear_after_last=False):
         self.start = start
-        self.pen = pen
         self.duration = duration
         self.ax = ax
         self.last_artists = None
+        self.clear_after_last = clear_after_last
 
-    def __call__(self, frames_passed):
-        if self.pen:
-            self.pen.on_update(frames_passed - self.start, frames_passed=frames_passed, duration=self.duration,
-                               ax=self.ax)
-        self.last_artists = self.action(frames_passed - self.start, frames_passed=frames_passed,
-                                        duration=self.duration,
-                                        ax=self.ax, last_artists=self.last_artists, pen=self.pen)
+    def is_last_frame(self, i):
+        return i == self.duration - 1
+
+    @abc.abstractmethod
+    def provide_data(self, i, duration, frames_passed):
+        pass
+
+    @abc.abstractmethod
+    def draw_figure(self, i, data, ax, last_artists):
+        pass
+
+    def update_figure(self, i, data, ax, last_artists):
+        """
+        Override this if you don't want to redraw plot and just update data instead
+        """
+        return self.draw_figure(i, data, ax, last_artists)
+
+    def _plot(self, frames_passed):
+        i = frames_passed - self.start
+        data = self.provide_data(i, self.duration, frames_passed)
+
+        has_previous_artists = self.last_artists is not None
+
+        if has_previous_artists:
+            artists = self.update_figure(i, data, self.ax, self.last_artists)
+        else:
+            artists = self.draw_figure(i, data, self.ax, self.last_artists)
+
+        self.last_artists = artists
+        if self.is_last_frame(i) and self.clear_after_last:
+            self.clear()
         return self.last_artists
 
     def is_time(self, frames_passed):
@@ -28,63 +53,13 @@ class Action:
 
         return res
 
-
-class Pen:
-    """
-    Class that holds wargs for plotting figures
-    """
-
-    def __init__(self, default_wargs={"color": "red"}, handle_update=None):
-        self.wargs = default_wargs
-        self.handle_update = handle_update
-        self.is_updated = False
-
-    def update_with_wargs(self, wargs, reset=False):
-        if reset:
-            self.wargs = wargs
-        else:
-            self.wargs.update(wargs)
-
-    def on_update(self, i, duration, frames_passed, ax):
-        if self.handle_update:
-            self.handle_update(i, duration, frames_passed, ax, self)
-            self.is_updated = True
-
-    def reset_is_updated(self):
-        self.is_updated = False
-
-
-import abc
-
-
-class Episode:
-
-    def __init__(self, duration, ax, start=None):
-        self.start = start
-        self.duration = duration
-        self.ax = ax
-
-    @abc.abstractmethod
-    def get_plot_type(self):
-        """
-        :return: line, scatter, fill_between
-        """
-        pass
-
-    @abc.abstractmethod
-    def provide_data(self, i, duration, frames_passed):
-        pass
-
-    @abc.abstractmethod
-    def update_figure(self, i, duration, frames_passed, ax, pen: Pen):
-        pass
-
-    def get_action(self):
-        return get_draw2D_action(self.provide_data, type=self.get_plot_type())
-
-    def should_clear(self):
-        # TODO clear when episode finished
-        return False
+    def clear(self):
+        has_previous_artists = self.last_artists is not None
+        if has_previous_artists:
+            if self.last_artists in self.ax.lines:
+                self.ax.lines.remove(self.last_artists)
+            elif self.last_artists in self.ax.collections:
+                self.ax.collections.remove(self.last_artists)
 
 
 class AnimationHandler:
@@ -95,91 +70,30 @@ class AnimationHandler:
     def __init__(self, interval):
         self.frames = 0
         self.interval = interval
-        self.actions = []
+        self.blocks = []
         self.time_ticks = []
-        self.dead_actions_count = 0
+        self.dead_blocks_count = 0
 
-    def add_episode(self, episode: Episode):
-        pen = Pen(
-            default_wargs={"color": "green", "alpha": 0.5},
-            handle_update=lambda i, duration, frames_passed, ax, pen: episode.update_figure(i, duration, frames_passed, ax, pen)
-        )
-        self.add_action(
-            action_lambda=episode.get_action(),
-            duration=episode.duration,
-            start=episode.start,
-            pen=pen,
-            ax=episode.ax
-        )
-
-    def add_action(self, action_lambda, duration, ax, pen=None, start=None):
-        if not start:
-            start = self.frames
-            self.frames += duration
+    def add_block(self, block):
+        if not block.start:
+            block.start = self.frames
+            self.frames += block.duration
         else:
-            action_end = start + duration
+            action_end = block.start + block.duration
             if action_end > self.frames:
                 self.frames = action_end
-        action = Action(action_lambda, start, duration, ax, pen)
-        assert action.duration >= 1
-        self._add_action(action)
 
-    def _add_action(self, action):
-        self.actions.append(action)
-        if len(self.time_ticks) == 0:
-            self.time_ticks.append(action.duration)
-        else:
-            self.time_ticks.append(self.time_ticks[-1] + action.duration)
-
-    def hold(self, hold_duration, ax):
-        """
-        Stack a frame for number of iterations = duration
-        """
-        assert len(self.actions) > 0
-        prev_action = self.actions[-1]
-
-        def draw_last_frame(i, duration, frames_passed, ax, last_artists, pen=None):
-            return prev_action.action(prev_action.duration-1, prev_action.duration, frames_passed, ax, last_artists, pen)
-
-        start = self.frames
-        self.frames += hold_duration
-        action = Action(action=draw_last_frame,
-                        start=start,
-                        duration=hold_duration,
-                        ax=ax,
-                        pen=Pen(
-                            prev_action.pen.wargs,
-                            handle_update=lambda i, duration, frames_passed, ax, pen:
-                            prev_action.pen.on_update(prev_action.duration, prev_action.duration, frames_passed, ax)
-                        )
-                        )
-        self._add_action(action)
-
-    def clear(self, ax):
-        """
-        Stack a frame for number of iterations = duration
-        """
-        assert len(self.actions) > 0
-
-        def clear(i, duration, frames_passed, ax, last_artists, pen=None):
-            ax.lines.clear()
-            ax.collections.clear()
-            return None
-
-        action = Action(action=clear, start=self.frames, duration=0, ax=ax)
-        self._add_action(action)
+        self.blocks.append(block)
 
     def update(self, frames_passed):
         artists = None
-        for action_index, action in enumerate(self.actions[self.dead_actions_count:]):
-            if action.is_time(frames_passed):
+        for block_index, block in enumerate(self.blocks[self.dead_blocks_count:]):
+            if block.is_time(frames_passed):
                 if artists is None:
                     artists = []
-                result = action(frames_passed)
+                result = block._plot(frames_passed)
                 if result:
                     artists.append(result)
-            # else:
-            #     self.dead_actions_count = action_index
         return artists
 
     def build_animation(self, fig):

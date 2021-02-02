@@ -1,3 +1,5 @@
+import abc
+
 import html_utils
 import animation_utils
 import numpy as np
@@ -133,4 +135,71 @@ def add_sin_demo():
     html_utils.open_html(html_utils.get_media_table([html_utils.get_html_video(ani), ""]))
 
 
-add_sin_demo()
+# add_sin_demo()
+
+def blocks_demo():
+    fig, axes = plt.subplots(1, 1)
+    axes.set_ylim((-1.2, 1.2))
+
+    t = np.linspace(0, 10, 100)
+
+    class LineBlock(animation_utils.Block):
+
+        def provide_data(self, i, duration, frames_passed):
+            return t, np.sin(t * i / duration)
+
+        def draw_figure(self, i, data, ax, last_artists):
+            x, y = data
+            line, = ax.plot(x, y)
+            return line
+
+        def update_figure(self, i, data, ax, last_artists):
+            if last_artists is None:
+                return super().update_figure(data, ax, last_artists)
+            x, y = data
+            last_artists.set_data(x, y)
+            last_artists.set_alpha(i / self.duration)
+            return last_artists
+
+    class ScatterBlock(animation_utils.Block):
+
+        def provide_data(self, i, duration, frames_passed):
+            return t, np.sin(t * i / duration)
+
+        def draw_figure(self, i, data, ax, last_artists):
+            x, y = data
+            path = ax.scatter(x, y)
+            return path
+
+        def update_figure(self, i, data, ax, last_artists):
+            if last_artists is None:
+                return super().update_figure(data, ax, last_artists)
+            path = last_artists
+            x, y = data
+            points = list(zip(x, y))
+            path.set_offsets(points)
+
+            return path
+
+    class FillBlock(animation_utils.Block):
+
+        def provide_data(self, i, duration, frames_passed):
+            return t, np.zeros_like(t), np.sin(t * i / duration)
+
+        def draw_figure(self, i, data, ax, last_artists):
+            x, y1, y2 = data
+            self.clear()
+            poly_collection = ax.fill_between(x, y1, y2, color="red")
+            return poly_collection
+
+    animation_handler = animation_utils.AnimationHandler(interval=100)
+
+    animation_handler.add_block(LineBlock(duration=20, ax=axes, start=0, clear_after_last=True))
+    animation_handler.add_block(ScatterBlock(duration=20, ax=axes, start=5))
+    animation_handler.add_block(FillBlock(duration=20, ax=axes, start=10))
+
+    ani = animation_handler.build_animation(fig)
+    html_utils.open_html(html_utils.get_media_table([html_utils.get_html_video(ani), ""]))
+
+
+blocks_demo()
