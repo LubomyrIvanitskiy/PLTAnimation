@@ -4,14 +4,45 @@ from matplotlib.lines import Line2D
 
 class Action:
 
-    def __init__(self, action, duration, ax):
+    def __init__(self, action, duration, ax, pen=None):
         self.action = action
+        self.pen = pen
         self.duration = duration
         self.ax = ax
+        self.last_artists = None
 
-    def __call__(self, frames_passed, previous_time_tick, last_artists):
-        return self.action(frames_passed - previous_time_tick, frames_passed=frames_passed, duration=self.duration,
-                           ax=self.ax, last_artists=last_artists)
+    def __call__(self, frames_passed, previous_time_tick):
+        if self.pen:
+            self.pen.on_update(frames_passed - previous_time_tick, frames_passed=frames_passed, duration=self.duration,
+                               ax=self.ax)
+        self.last_artists = self.action(frames_passed - previous_time_tick, frames_passed=frames_passed, duration=self.duration,
+                           ax=self.ax, last_artists=self.last_artists, pen=self.pen)
+        return self.last_artists
+
+
+class Pen:
+    """
+    Class that holds wargs for plotting figures
+    """
+
+    def __init__(self, default_wargs={"color": "red"}, handle_update=None):
+        self.wargs = default_wargs
+        self.handle_update = handle_update
+        self.is_updated = False
+
+    def update_with_wargs(self, wargs, reset=False):
+        if reset:
+            self.wargs = wargs
+        else:
+            self.wargs.update(wargs)
+
+    def on_update(self, i, duration, frames_passed, ax):
+        if self.handle_update:
+            self.handle_update(i, duration, frames_passed, ax, self)
+            self.is_updated = True
+
+    def reset_is_updated(self):
+        self.is_updated = False
 
 
 class AnimationHandler:
@@ -22,7 +53,6 @@ class AnimationHandler:
     def __init__(self, interval):
         self.frames = 0
         self.interval = interval
-        self.last_artists = None
         self.actions = []
         self.time_ticks = []
         self.timeless_actions = {}
@@ -37,9 +67,9 @@ class AnimationHandler:
         actions.append(action)
         self.timeless_actions[i] = actions
 
-    def add_action(self, action_lambda, duration, ax):
+    def add_action(self, action_lambda, duration, ax, pen=None):
         self.frames += duration
-        action = Action(action_lambda, duration, ax)
+        action = Action(action_lambda, duration, ax, pen)
         assert action.duration >= 1
         self._add_action(action)
 
@@ -60,11 +90,19 @@ class AnimationHandler:
         prev_tick = self.time_ticks[-1]
         prev_action_duration = prev_tick - prev_prev_tick
 
-        def draw_last_frame(i, duration, frames_passed, ax, last_artists):
-            return prev_action.action(prev_action_duration, prev_action_duration, frames_passed, ax, last_artists)
+        def draw_last_frame(i, duration, frames_passed, ax, last_artists, pen=None):
+            return prev_action.action(prev_action_duration, prev_action_duration, frames_passed, ax, last_artists, pen)
 
         self.frames += hold_duration
-        action = Action(draw_last_frame, hold_duration, ax)
+        action = Action(draw_last_frame,
+                        hold_duration,
+                        ax,
+                        pen=Pen(
+                            prev_action.pen.wargs,
+                            handle_update=lambda i, duration, frames_passed, ax, pen:
+                            prev_action.pen.on_update(prev_action_duration, prev_action_duration, frames_passed, ax)
+                        )
+                        )
         self._add_action(action)
 
     def clear(self, ax):
@@ -73,7 +111,7 @@ class AnimationHandler:
         """
         assert len(self.actions) > 0
 
-        def clear(i, duration, frames_passed, ax, last_artists):
+        def clear(i, duration, frames_passed, ax, last_artists, pen=None):
             ax.lines.clear()
             ax.collections.clear()
             return []
@@ -89,11 +127,10 @@ class AnimationHandler:
             if frames_passed in self.timeless_actions:
                 timeless_actions = self.timeless_actions[frames_passed]
                 for ta in timeless_actions:
-                    ta(frames_passed, prev_time_tick, self.last_artists)
+                    ta(frames_passed, prev_time_tick)
             if frames_passed < time_tick:
                 # pass relative i
-                self.last_artists = action(frames_passed, prev_time_tick, self.last_artists)
-                artists.append(self.last_artists)
+                artists.append(action(frames_passed, prev_time_tick))
                 return artists
             else:
                 prev_time_tick = time_tick
@@ -112,35 +149,37 @@ class AnimationHandler:
 
 # <<< Helper methods >>>
 
-def _plot_scatter(i, duration, frames_passed, ax, last_artists=None, data_provider=None):
+def _plot_scatter(i, duration, frames_passed, ax, last_artists=None, data_provider=None, pen=None):
     x, y = data_provider(i, duration, frames_passed)
-    if last_artists is not None and isinstance(last_artists, PathCollection):
+    if last_artists is not None and isinstance(last_artists, PathCollection) and not pen.is_updated:
         path = last_artists
         points = list(zip(x, y))
         path.set_offsets(points)
     else:
         ax.collections.clear()
-        path = ax.scatter(x, y, c="blue")
+        path = ax.scatter(x, y, **pen.wargs)
     return path
 
 
-def _plot_line(i, duration, frames_passed, ax, last_artists=None, data_provider=None):
+def _plot_line(i, duration, frames_passed, ax, last_artists=None, data_provider=None, pen=None):
     x, y = data_provider(i, duration, frames_passed)
-    if last_artists is not None and isinstance(last_artists, Line2D):
+    if last_artists is not None and isinstance(last_artists, Line2D) and not pen.is_updated:
         line = last_artists
         line.set_data(x, y)
     else:
         ax.lines.clear()
-        line, = ax.plot(x, y, c="blue")
+        line, = ax.plot(x, y, **pen.wargs)
+        pen.reset_is_updated()
     return line
 
 
-def _fill_between(i, duration, frames_passed, ax, last_artists=None, data_provider=None):
+def _fill_between(i, duration, frames_passed, ax, last_artists=None, data_provider=None, pen=None):
     x, y1, y2 = data_provider(i, duration, frames_passed)
     # The best way is to redraw because updating vertices is too sophisticated especially if some interpolation
     # techniques are used
     ax.collections.clear()
-    poly_collection = ax.fill_between(x, y1, y2, color="blue")
+    wargs = pen.wargs if pen else {"color": "blue"}
+    poly_collection = ax.fill_between(x, y1, y2, **wargs)
     return poly_collection
 
 
@@ -150,12 +189,16 @@ def get_draw2D_action(data_provider, type="line"):
     :param type: line, scatter, fill_between
     :return: Action for drawing animation
     """
+
+    def get_action(method):
+        return lambda i, duration, frames_passed, ax, last_artists, pen: method(i, duration, frames_passed, ax,
+                                                                                last_artists,
+                                                                                data_provider,
+                                                                                pen)
+
     if type == "scatter":
-        return lambda i, duration, frames_passed, ax, last_artists: _plot_scatter(i, duration, frames_passed, ax, last_artists,
-                                                                                  data_provider)
+        return get_action(_plot_scatter)
     if type == "fill_between":
-        return lambda i, duration, frames_passed, ax, last_artists: _fill_between(i, duration, frames_passed, ax, last_artists,
-                                                                                  data_provider)
+        return get_action(_fill_between)
     else:
-        return lambda i, duration, ax, frames_passed, last_artists: _plot_line(i, duration, frames_passed, ax, last_artists,
-                                                                data_provider)
+        return get_action(_plot_line)
