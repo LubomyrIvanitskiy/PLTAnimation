@@ -42,6 +42,12 @@ def get_html_image(fig):
     return img_html
 
 
+def get_js_html(animation: FuncAnimation):
+    import matplotlib.pyplot as plt
+    plt.rcParams['animation.ffmpeg_path'] = 'C:/FFmpeg/bin/ffmpeg.exe'
+    return animation.to_jshtml()
+
+
 def get_html_video(animation: FuncAnimation):
     import matplotlib.pyplot as plt
     plt.rcParams['animation.ffmpeg_path'] = 'C:/FFmpeg/bin/ffmpeg.exe'

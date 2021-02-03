@@ -4,13 +4,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from template_blocks import *
 
-def blocks_demo():
-    fig, axes = plt.subplots(1, 1)
+
+def blocks_demo(axes, builder=None):
     axes.set_ylim((-1.2, 1.2))
 
     t = np.linspace(0, 10, 100)
 
-    animation_handler = animation.AnimationBuilder(interval=100)
+    if not builder:
+        builder = animation.AnimationBuilder(interval=100)
 
     class Line(LineBlock):
 
@@ -27,19 +28,14 @@ def blocks_demo():
         def provide_data(self, i, duration, frames_passed):
             return t, np.zeros_like(t), np.sin(t * self.get_progress(i))
 
-    animation_handler.add_block(Line(duration=20, ax=axes, start=0, clear_after_last=True))
-    animation_handler.add_block(Scat(duration=20, ax=axes, start=5))
-    animation_handler.add_block(Fill(duration=20, ax=axes, start=10))
+    builder.add_block(Line(duration=20, ax=axes, start=0, clear_after_last=True))
+    builder.add_block(Scat(duration=20, ax=axes, start=5))
+    builder.add_block(Fill(duration=20, ax=axes, start=10))
 
-    ani = animation_handler.build_animation(fig)
-    html_utils.open_html(html_utils.get_media_table([html_utils.get_html_video(ani), ""]))
-
-
-# blocks_demo()
+    return builder
 
 
-def add_sin_demo():
-    fig, axes = plt.subplots(1, 1)
+def add_sin_demo(axes, builder=None):
     axes.set_ylim((-4.2, 4.2))
 
     h_count = 5
@@ -50,7 +46,8 @@ def add_sin_demo():
 
     hs = [A[i] * np.sin(w[i] * t + b[i]) for i in range(h_count)]
 
-    animation_handler = animation.AnimationBuilder(interval=100)
+    if not builder:
+        builder = animation.AnimationBuilder(interval=100)
 
     class Intro(FillBlock):
 
@@ -101,28 +98,23 @@ def add_sin_demo():
             return t, np.zeros_like(t), self.get_progress(i) * self.base + self.h
 
     frame_duration = 20
-    oldest_block = animation_handler.add_block(Intro(hs[0], frame_duration, axes))
+    oldest_block = builder.add_block(Intro(hs[0], frame_duration, axes, start=0))
     for index in range(1, len(hs)):
         h = hs[index]
         base = np.sum(hs[:index], axis=0)
-        new_block = animation_handler.add_block(Intro(h, frame_duration, axes))
-        block = animation_handler.add_block(
+        new_block = builder.add_block(Intro(h, frame_duration, axes))
+        block = builder.add_block(
             Transform(h, np.sum(hs[:index], axis=0), frame_duration, axes, predcessor=new_block))
-        animation_handler.add_block(
+        builder.add_block(
             Gone(base, frame_duration, axes, start=block.start, clear_after_last=True, predcessor=oldest_block))
         oldest_block = block
 
-    ani = animation_handler.build_animation(fig)
-    html_utils.open_html(html_utils.get_media_table([html_utils.get_html_video(ani), ""]))
+    return builder
 
 
-# add_sin_demo()
-
-def surface_3d_demo():
-    fig = plt.figure()
+def surface_3d_demo(ax, builder=None):
     t = np.linspace(0, 10, 100)
 
-    ax = plt.axes(projection='3d')
     zlims = (-1.2, 1.2)
     ylims = (-1.2, 1.2)
     tlims = (0, np.max(t))
@@ -161,20 +153,19 @@ def surface_3d_demo():
             return artists
 
     block_duration = 50
-    animation_handler = animation.AnimationBuilder(interval=100)
-    animation_handler.add_block(ProjectionRotation(initial_angle=(15, 0), angle_delta=(0, 180), duration=block_duration, ax=ax, start=0))
-    animation_handler.add_block(ComplexLine(block_duration, ax, start=0))
-    animation_handler.add_block(LineRealShadow(block_duration, ax, start=0))
-    animation_handler.add_block(LineImagShadow(block_duration, ax, start=0))
-    animation_handler.add_block(ComplexSurface(block_duration, ax, start=0))
-    ani = animation_handler.build_animation(fig)
-    html_utils.open_html(html_utils.get_media_table([html_utils.get_html_video(ani), ""]))
+    if not builder:
+        builder = animation.AnimationBuilder(interval=100)
+    builder.add_block(
+        ProjectionRotation(initial_angle=(15, 0), angle_delta=(0, 180), duration=block_duration, ax=ax, start=0))
+    builder.add_block(ComplexLine(block_duration, ax, start=0))
+    builder.add_block(LineRealShadow(block_duration, ax, start=0))
+    builder.add_block(LineImagShadow(block_duration, ax, start=0))
+    builder.add_block(ComplexSurface(block_duration, ax, start=0))
+
+    return builder
 
 
-# surface_3d_demo()
-
-def progress_demo():
-    fig, axes = plt.subplots(1, 1)
+def progress_demo(axes, builder=None):
     axes.set_ylim((-1.2, 1.2))
     axes.set_xlim((0, 10))
 
@@ -183,18 +174,30 @@ def progress_demo():
     class Progress(ScatterBlock):
 
         def provide_data(self, i, duration, frames_passed):
-            print(t[:i+1])
-            return t[:i+2], np.sin(t[:i+2])
+            return t[:i + 2], np.sin(t[:i + 2])
 
-    builder = animation.AnimationBuilder(interval=100)
-    builder.add_block(Progress(duration=100, ax=axes))
-    ani = builder.build_animation(fig)
-    html_utils.open_html(html_utils.get_html_video(ani))
+    if not builder:
+        builder = animation.AnimationBuilder(interval=100)
+    builder.add_block(Progress(duration=100, ax=axes, start=0))
 
-progress_demo()
+    return builder
+
 
 def demo_all():
-    t = np.linspace(0, 10, 1000)
-    fig, axes = plt.subplots(2, 2, figsize=(10,10))
+    fig = plt.figure(figsize=(8, 8))
+    ax1 = fig.add_subplot(2, 2, 1)
+    ax2 = fig.add_subplot(2, 2, 2)
+    ax3 = fig.add_subplot(2, 2, 3)
+    ax4 = fig.add_subplot(2, 2, 4, projection='3d')
+
+    builder = blocks_demo(ax1)
+    builder = add_sin_demo(ax2, builder)
+    builder = progress_demo(ax3, builder)
+    builder = surface_3d_demo(ax4, builder)
+    ani = builder.build_animation(fig)
+    # html_utils.open_html(html_utils.get_js_html(ani))
+    html_utils.open_html(html_utils.get_html_video(ani))
 
 
+
+demo_all()
