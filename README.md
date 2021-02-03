@@ -4,7 +4,7 @@ Library for making simple animations with matplotlib plots and creating video fr
 
 The main class is `animation.Block` which represents a part of animation with it's own *start_time*, *duration* e.t.c and the `animation.AnimationBuilder` that compounds that blocks together and create the animation.
 
-There is also the `template_blocks.py` module that has already predefined some types of animation blocks, so you can extend either one of the template class or create your own custom block extending animation.Block class directly.
+There is also the `template_blocks.py` module that has already predefined some types of animation blocks, so you can extend either one of the template class or create your own custom block extending `animation.Block` class directly.
 
 In order to create an animation block you need to extend one of the Block classes and override 3 method:
 
