@@ -54,45 +54,36 @@ def add_sin_demo():
 
     animation_handler = animation_utils.AnimationHandler(interval=100)
 
-    class Show(animation_utils.LineBlock):
+    class Intro(animation_utils.FillBlock):
 
         def __init__(self, h, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.h = h
 
         def provide_data(self, i, duration, frames_passed):
-            return t, self.h
+            return t, np.zeros_like(t), self.h
 
-    class Intro(animation_utils.LineBlock):
-
-        def __init__(self, h, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.h = h
-
-        def provide_data(self, i, duration, frames_passed):
-            return t, self.h
-
-        def draw_figure(self, i, data, ax, last_artists):
-            line = super(Intro, self).draw_figure(i, data, ax, last_artists)
+        def draw_figure(self, i, data, ax, last_artists, **kwargs):
+            line = super().draw_figure(i, data, ax, last_artists, **kwargs)
             line.set_alpha(i / self.duration)
             return line
 
         def update_figure(self, i, data, ax, last_artists):
-            line = super(Intro, self).update_figure(i, data, ax, last_artists)
+            line = super().update_figure(i, data, ax, last_artists)
             line.set_alpha(i / self.duration)
             return line
 
-    class Gone(animation_utils.LineBlock):
+    class Gone(animation_utils.FillBlock):
 
         def __init__(self, h, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.h = h
 
         def provide_data(self, i, duration, frames_passed):
-            return t, self.h
+            return t, np.zeros_like(t), self.h
 
-        def draw_figure(self, i, data, ax, last_artists):
-            line = super().draw_figure(i, data, ax, last_artists)
+        def draw_figure(self, i, data, ax, last_artists, **kwargs):
+            line = super().draw_figure(i, data, ax, last_artists, **kwargs)
             line.set_alpha(1 - i / self.duration)
             return line
 
@@ -101,7 +92,7 @@ def add_sin_demo():
             line.set_alpha(1 - i / self.duration)
             return line
 
-    class Transform(animation_utils.LineBlock):
+    class Transform(animation_utils.FillBlock):
 
         def __init__(self, h, base, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -109,9 +100,7 @@ def add_sin_demo():
             self.base = base
 
         def provide_data(self, i, duration, frames_passed):
-            return t, (i / self.duration) * self.base + self.h
-
-    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+            return t, np.zeros_like(t), (i / (self.duration-1)) * self.base + self.h
 
     frame_duration = 20
     oldest_block = animation_handler.add_block(Intro(hs[0], frame_duration, axes))
@@ -122,7 +111,7 @@ def add_sin_demo():
         block = animation_handler.add_block(
             Transform(h, np.sum(hs[:index], axis=0), frame_duration, axes, predcessor=new_block))
         animation_handler.add_block(
-            Gone(base, frame_duration, axes, clear_after_last=True, start=block.start, predcessor=oldest_block))
+            Gone(base, frame_duration, axes, start=block.start, clear_after_last=True, predcessor=oldest_block))
         oldest_block = block
 
     ani = animation_handler.build_animation(fig)

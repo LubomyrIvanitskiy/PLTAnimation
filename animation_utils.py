@@ -19,7 +19,7 @@ class Block:
         pass
 
     @abc.abstractmethod
-    def draw_figure(self, i, data, ax, last_artists):
+    def draw_figure(self, i, data, ax, last_artists, **kwargs):
         pass
 
     def update_figure(self, i, data, ax, last_artists):
@@ -36,11 +36,13 @@ class Block:
             self.last_artists = self.predcessor.last_artists
 
         has_previous_artists = self.last_artists is not None
+        # print("has_previous_artists", has_previous_artists)
 
         if has_previous_artists:
             artists = self.update_figure(i, data, self.ax, self.last_artists)
         else:
             artists = self.draw_figure(i, data, self.ax, self.last_artists)
+            print("New artists created", artists.get_facecolor())
 
         self.last_artists = artists
         if self.is_last_frame(i) and self.clear_after_last:
@@ -118,7 +120,7 @@ class LineBlock(Block):
     def provide_data(self, i, duration, frames_passed):
         pass
 
-    def draw_figure(self, i, data, ax, last_artists):
+    def draw_figure(self, i, data, ax, last_artists, **kwargs):
         x, y = data
         line, = ax.plot(x, y)
         return line
@@ -137,7 +139,7 @@ class ScatterBlock(Block):
     def provide_data(self, i, duration, frames_passed):
         pass
 
-    def draw_figure(self, i, data, ax, last_artists):
+    def draw_figure(self, i, data, ax, last_artists, **kwargs):
         x, y = data
         path = ax.scatter(x, y)
         return path
@@ -159,8 +161,19 @@ class FillBlock(Block):
     def provide_data(self, i, duration, frames_passed):
         pass
 
-    def draw_figure(self, i, data, ax, last_artists):
+    def draw_figure(self, i, data, ax, last_artists, **kwargs):
         x, y1, y2 = data
-        self.clear()
-        poly_collection = ax.fill_between(x, y1, y2, color="red")
+        if 'from_update' in kwargs and kwargs.get('from_update'):
+            poly_collection = ax.fill_between(x, y1, y2, color="grey", alpha=0.0)
+        else:
+            poly_collection = ax.fill_between(x, y1, y2)
         return poly_collection
+
+    def update_figure(self, i, data, ax, last_artists):
+        if last_artists is None:
+            return super().update_figure(data, ax, last_artists)
+        new_collection = self.draw_figure(i, data, ax, last_artists, from_update=True)
+        # Here we want to change only the vertices and keep other parameters (like size or color) the same
+        last_artists.get_paths()[0].vertices = new_collection.get_paths()[0].vertices
+        ax.collections.remove(new_collection)
+        return last_artists
