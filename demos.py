@@ -100,7 +100,7 @@ def add_sin_demo():
             self.base = base
 
         def provide_data(self, i, duration, frames_passed):
-            return t, np.zeros_like(t), (i / (self.duration-1)) * self.base + self.h
+            return t, np.zeros_like(t), (i / (self.duration - 1)) * self.base + self.h
 
     frame_duration = 20
     oldest_block = animation_handler.add_block(Intro(hs[0], frame_duration, axes))
@@ -118,4 +118,40 @@ def add_sin_demo():
     html_utils.open_html(html_utils.get_media_table([html_utils.get_html_video(ani), ""]))
 
 
-add_sin_demo()
+# add_sin_demo()
+
+def surface_3d_demo():
+    fig = plt.figure()
+    t = np.linspace(0, 10, 100)
+
+    ax = plt.axes(projection='3d')
+    ax.set_zlim(-1.2, 1.2)
+    ax.set_ylim(-1.2, 1.2)
+    ax.set_xlim(0, np.max(t))
+
+    class Show(animation_utils.Line3DBlock):
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+
+        def provide_data(self, i, duration, frames_passed):
+            return t, np.zeros_like(t), np.sin(t*i/duration)
+
+    class Tape(animation_utils.Surface3DBlock):
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+
+        def provide_data(self, i, duration, frames_passed):
+            y = np.arange(-1.1, 1.1, 0.1)
+            X, Y = np.meshgrid(t, y)
+            R = np.exp(1j * X * (i/duration)) * Y
+            return X, np.real(R), np.imag(R)
+
+    animation_handler = animation_utils.AnimationHandler(interval=100)
+    # animation_handler.add_block(Show(30, ax))
+    animation_handler.add_block(Tape(30, ax))
+    ani = animation_handler.build_animation(fig)
+    html_utils.open_html(html_utils.get_media_table([html_utils.get_html_video(ani), ""]))
+
+surface_3d_demo()

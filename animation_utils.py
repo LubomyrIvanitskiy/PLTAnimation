@@ -1,5 +1,8 @@
 import abc
 
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+import numpy as np
+
 
 class Block:
 
@@ -175,4 +178,47 @@ class FillBlock(Block):
         # Here we want to change only the vertices and keep other parameters (like size or color) the same
         last_artists.get_paths()[0].vertices = new_collection.get_paths()[0].vertices
         ax.collections.remove(new_collection)
+        return last_artists
+
+
+class Line3DBlock(Block):
+
+    @abc.abstractmethod
+    def provide_data(self, i, duration, frames_passed):
+        pass
+
+    def draw_figure(self, i, data, ax, last_artists, **kwargs):
+        x, y, z = data
+        line, = ax.plot(x, y, z)
+        return line
+
+    def update_figure(self, i, data, ax, last_artists):
+        if last_artists is None:
+            return super().update_figure(data, ax, last_artists)
+        x, y, z = data
+        last_artists.set_data_3d(x, y, z)
+        return last_artists
+
+
+class Surface3DBlock(Block):
+
+    @abc.abstractmethod
+    def provide_data(self, i, duration, frames_passed):
+        pass
+
+    def draw_figure(self, i, data, ax, last_artists, **kwargs):
+        x, y, z = data
+        surface = ax.plot_surface(x, y, z)
+        return surface
+
+    def update_figure(self, i, data, ax, last_artists):
+        if last_artists is None:
+            return super().update_figure(data, ax, last_artists, for_update=True)
+        new_poly3dcollection = self.draw_figure(i, data, ax, last_artists, from_update=True)
+        last_artists.set_verts(new_poly3dcollection._paths)
+        ax.collections.remove(new_poly3dcollection)
+
+        last_artists._vec = new_poly3dcollection._vec
+        last_artists._segslices = new_poly3dcollection._segslices
+
         return last_artists
