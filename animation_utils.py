@@ -42,7 +42,6 @@ class Block:
             artists = self.update_figure(i, data, self.ax, self.last_artists)
         else:
             artists = self.draw_figure(i, data, self.ax, self.last_artists)
-            print("New artists created", artists.get_facecolor())
 
         self.last_artists = artists
         if self.is_last_frame(i) and self.clear_after_last:
