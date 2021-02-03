@@ -129,15 +129,15 @@ def surface_3d_demo():
     ax.set_ylim(-1.2, 1.2)
     ax.set_xlim(0, np.max(t))
 
-    class Show(animation_utils.Line3DBlock):
+    class ComplexLine(animation_utils.Line3DBlock):
 
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
 
         def provide_data(self, i, duration, frames_passed):
-            return t, np.zeros_like(t), np.sin(t*i/duration)
+            return t, np.real(np.exp(1j * t * ((i+1)/duration))*np.sin(t)), np.imag(np.exp(1j * t * ((i+1)/duration))*np.sin(t))
 
-    class Tape(animation_utils.Surface3DBlock):
+    class ComplexSurface(animation_utils.Surface3DBlock):
 
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -145,12 +145,18 @@ def surface_3d_demo():
         def provide_data(self, i, duration, frames_passed):
             y = np.arange(-1.1, 1.1, 0.1)
             X, Y = np.meshgrid(t, y)
-            R = np.exp(1j * X * (i/duration)) * Y
+            R = np.exp(1j * X * ((i+1)/duration)) * Y
             return X, np.real(R), np.imag(R)
 
+        def draw_figure(self, i, data, ax, last_artists, **kwargs):
+            artists = super().draw_figure(i, data, ax, last_artists, **kwargs)
+            artists.set_alpha(0.3)
+            artists.set_color("grey")
+            return artists
+
     animation_handler = animation_utils.AnimationHandler(interval=100)
-    # animation_handler.add_block(Show(30, ax))
-    animation_handler.add_block(Tape(30, ax))
+    show_block = animation_handler.add_block(ComplexLine(30, ax))
+    animation_handler.add_block(ComplexSurface(30, ax, start=show_block.start))
     ani = animation_handler.build_animation(fig)
     html_utils.open_html(html_utils.get_media_table([html_utils.get_html_video(ani), ""]))
 

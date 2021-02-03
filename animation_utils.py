@@ -80,7 +80,7 @@ class AnimationHandler:
         self.dead_blocks_count = 0
 
     def add_block(self, block):
-        if not block.start:
+        if block.start is None:
             block.start = self.frames
             self.frames += block.duration
         else:
