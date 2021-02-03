@@ -171,4 +171,30 @@ def surface_3d_demo():
     html_utils.open_html(html_utils.get_media_table([html_utils.get_html_video(ani), ""]))
 
 
-surface_3d_demo()
+# surface_3d_demo()
+
+def progress_demo():
+    fig, axes = plt.subplots(1, 1)
+    axes.set_ylim((-1.2, 1.2))
+    axes.set_xlim((0, 10))
+
+    t = np.linspace(0, 10, 100)
+
+    class Progress(ScatterBlock):
+
+        def provide_data(self, i, duration, frames_passed):
+            print(t[:i+1])
+            return t[:i+2], np.sin(t[:i+2])
+
+    builder = animation.AnimationBuilder(interval=100)
+    builder.add_block(Progress(duration=100, ax=axes))
+    ani = builder.build_animation(fig)
+    html_utils.open_html(html_utils.get_html_video(ani))
+
+progress_demo()
+
+def demo_all():
+    t = np.linspace(0, 10, 1000)
+    fig, axes = plt.subplots(2, 2, figsize=(10,10))
+
+
