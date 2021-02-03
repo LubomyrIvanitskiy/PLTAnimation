@@ -1,8 +1,5 @@
 import abc
 
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-import numpy as np
-
 
 class Block:
 
@@ -17,9 +14,8 @@ class Block:
     def is_last_frame(self, i):
         return i == self.duration - 1
 
-    @abc.abstractmethod
     def provide_data(self, i, duration, frames_passed):
-        pass
+        return None
 
     @abc.abstractmethod
     def draw_figure(self, i, data, ax, last_artists, **kwargs):
@@ -66,8 +62,11 @@ class Block:
             elif self.last_artists in self.ax.collections:
                 self.ax.collections.remove(self.last_artists)
 
+    def get_progress(self, i):
+        return (i + 1) / self.duration if self.duration > 0 else 1
 
-class AnimationHandler:
+
+class AnimationBuilder:
     """
     Class for creating actions and stacking them together to be handled sequentially when animation is running
     """
@@ -111,114 +110,3 @@ class AnimationHandler:
             interval=self.interval,
             blit=True)
         return ani
-
-
-# HELPERS
-
-
-class LineBlock(Block):
-
-    @abc.abstractmethod
-    def provide_data(self, i, duration, frames_passed):
-        pass
-
-    def draw_figure(self, i, data, ax, last_artists, **kwargs):
-        x, y = data
-        line, = ax.plot(x, y)
-        return line
-
-    def update_figure(self, i, data, ax, last_artists):
-        if last_artists is None:
-            return super().update_figure(data, ax, last_artists)
-        x, y = data
-        last_artists.set_data(x, y)
-        return last_artists
-
-
-class ScatterBlock(Block):
-
-    @abc.abstractmethod
-    def provide_data(self, i, duration, frames_passed):
-        pass
-
-    def draw_figure(self, i, data, ax, last_artists, **kwargs):
-        x, y = data
-        path = ax.scatter(x, y)
-        return path
-
-    def update_figure(self, i, data, ax, last_artists):
-        if last_artists is None:
-            return super().update_figure(data, ax, last_artists)
-        path = last_artists
-        x, y = data
-        points = list(zip(x, y))
-        path.set_offsets(points)
-
-        return path
-
-
-class FillBlock(Block):
-
-    @abc.abstractmethod
-    def provide_data(self, i, duration, frames_passed):
-        pass
-
-    def draw_figure(self, i, data, ax, last_artists, **kwargs):
-        x, y1, y2 = data
-        if 'from_update' in kwargs and kwargs.get('from_update'):
-            poly_collection = ax.fill_between(x, y1, y2, color="grey", alpha=0.0)
-        else:
-            poly_collection = ax.fill_between(x, y1, y2)
-        return poly_collection
-
-    def update_figure(self, i, data, ax, last_artists):
-        if last_artists is None:
-            return super().update_figure(data, ax, last_artists)
-        new_collection = self.draw_figure(i, data, ax, last_artists, from_update=True)
-        # Here we want to change only the vertices and keep other parameters (like size or color) the same
-        last_artists.get_paths()[0].vertices = new_collection.get_paths()[0].vertices
-        ax.collections.remove(new_collection)
-        return last_artists
-
-
-class Line3DBlock(Block):
-
-    @abc.abstractmethod
-    def provide_data(self, i, duration, frames_passed):
-        pass
-
-    def draw_figure(self, i, data, ax, last_artists, **kwargs):
-        x, y, z = data
-        line, = ax.plot(x, y, z)
-        return line
-
-    def update_figure(self, i, data, ax, last_artists):
-        if last_artists is None:
-            return super().update_figure(data, ax, last_artists)
-        x, y, z = data
-        last_artists.set_data_3d(x, y, z)
-        return last_artists
-
-
-class Surface3DBlock(Block):
-
-    @abc.abstractmethod
-    def provide_data(self, i, duration, frames_passed):
-        pass
-
-    def draw_figure(self, i, data, ax, last_artists, **kwargs):
-        x, y, z = data
-        surface = ax.plot_surface(x, y, z)
-        return surface
-
-    def update_figure(self, i, data, ax, last_artists):
-        if last_artists is None:
-            return super().update_figure(data, ax, last_artists, for_update=True)
-        new_poly3dcollection = self.draw_figure(i, data, ax, last_artists, from_update=True)
-        last_artists.set_verts(new_poly3dcollection._paths)
-        ax.collections.remove(new_poly3dcollection)
-
-        last_artists._vec = new_poly3dcollection._vec
-        last_artists._segslices = new_poly3dcollection._segslices
-
-        return last_artists
