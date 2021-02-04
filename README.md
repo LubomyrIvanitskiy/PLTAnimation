@@ -16,4 +16,4 @@ In order to create an animation block you need to extend the Block class and ove
 * Also you can combine several blocks together by passing `predecessor_block` as the Block constructor. Int this case you'll receive the predecessor_block's last patches in the `on_frame`() method and then re-use it on your own.
 * To store your animation as video and display in a browser, call: `html_utils.open_html(html_utils.get_html_video(anim))` (you'll need FFMpeg installed, and to specify your path in  html_utils methods, like:  `plt.rcParams['animation.ffmpeg_path'] = 'C:/FFmpeg/bin/ffmpeg.exe'`
 * To store your animation as an interactive JS code, use: `html_utils.open_html(html_utils.get_js_html(anim))`
-* To store your animation as an interactive JS code, use: `html_utils.open_html(html_utils.get_js_html(anim))`
+* To just see the animation, call: 'plt.show()' in the end
