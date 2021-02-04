@@ -72,7 +72,10 @@ class AnimationBuilder:
                     patches = []
                 result = block._draw(frames_passed)
                 if result:
-                    patches.append(result)
+                    if type(result) is tuple:
+                        patches.extend(result)
+                    else:
+                        patches.append(result)
         return patches
 
     def build_animation(self, fig):
