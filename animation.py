@@ -13,7 +13,6 @@ class Block:
     def on_frame(self, progress, last_patches, **kwargs):
         pass
 
-    @abc.abstractmethod
     def finish(self, last_patches):
         pass
 
