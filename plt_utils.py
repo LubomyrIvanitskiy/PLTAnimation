@@ -1,7 +1,6 @@
-from typing import Union, Type, List, Iterable
+from typing import Union, Iterable
 
 import numpy as np
-from matplotlib.artist import Artist
 from matplotlib.collections import PolyCollection, PathCollection
 from matplotlib.lines import Line2D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3D
