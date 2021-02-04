@@ -1,4 +1,4 @@
-from typing import Union, Type, List
+from typing import Union, Type, List, Iterable
 
 import numpy as np
 from matplotlib.artist import Artist
@@ -146,7 +146,10 @@ def copy_surface3d_vertices(from_surface_patch: Poly3DCollection, to_surface_pat
     return to_surface_patch
 
 
-def remove_patches(axes, patches: List[Type[Artist]]):
+def remove_patches(axes, patches):
+    if not isinstance(patches, Iterable):
+        patches = [patches]
+
     for patch in patches:
         if patch in axes.lines:
             axes.lines.remove(patch)
