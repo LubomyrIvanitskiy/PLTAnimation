@@ -2,7 +2,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import html_utils
-import plt_utils
 from animation import *
 
 

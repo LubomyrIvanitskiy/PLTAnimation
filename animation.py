@@ -78,12 +78,12 @@ class AnimationBuilder:
                         patches.append(result)
         return patches
 
-    def build_animation(self, fig):
+    def build_animation(self, fig, blit=False):
         from matplotlib import animation
         ani = animation.FuncAnimation(
             fig=fig,
             func=self.update,
             frames=self.frames,
             interval=self.interval,
-            blit=True)
+            blit=blit)
         return ani
