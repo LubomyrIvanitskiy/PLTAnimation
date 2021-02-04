@@ -1,4 +1,10 @@
+from typing import Union, Type, List
+
 import numpy as np
+from matplotlib.artist import Artist
+from matplotlib.collections import PolyCollection, PathCollection
+from matplotlib.lines import Line2D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3D
 
 
 def pure_text_label_plot(ax, text, color="black", fontsize=30):
@@ -40,10 +46,10 @@ def clear_axes(axes):
     flat_op = getattr(axes, "flat", None)
     if callable(flat_op):
         for ax in axes.flat:
-            ax.clear()
+            ax.finish()
     else:
         try:
-            axes.clear()
+            axes.finish()
         except Exception:
             pass
 
@@ -108,3 +114,41 @@ def draw_arrow_with_text(ax, xyfrom, xyto, text=None):
         text = str(np.sqrt((xyfrom[0] - xyto[0]) ** 2 + (xyfrom[1] - xyto[1]) ** 2))
     ax.annotate("", xyfrom, xyto, arrowprops=dict(arrowstyle='<->'))
     ax.text((xyto[0] + xyfrom[0]) / 2, (xyto[1] + xyfrom[1]) / 2, text, fontsize=16)
+
+
+# Helper methods to update already existing plot instead of fully redrawing it
+
+def update_line(line_patch: Union[Line2D, Line3D], x, y, z=None) -> Union[Line2D, Line3D]:
+    if z is not None:
+        line_patch.set_data_3d(x, y, z)
+    else:
+        line_patch.set_data(x, y)
+    return line_patch
+
+
+def update_scatter(scatter_patch: PathCollection, x, y, z=None) -> PathCollection:
+    if z is not None:
+        scatter_patch._offsets3d = (x, y, z)
+    else:
+        points = list(zip(x, y))
+        scatter_patch.set_offsets(points)
+    return scatter_patch
+
+
+def copy_fillbetween_vertices(from_fill_between_patch: PolyCollection, to_fill_between_patch: PolyCollection):
+    to_fill_between_patch.get_paths()[0].vertices = from_fill_between_patch.get_paths()[0].vertices
+    return to_fill_between_patch
+
+
+def copy_surface3d_vertices(from_surface_patch: Poly3DCollection, to_surface_patch: Poly3DCollection):
+    to_surface_patch._vec = from_surface_patch._vec
+    to_surface_patch._segslices = from_surface_patch._segslices
+    return to_surface_patch
+
+
+def remove_patches(axes, patches: List[Type[Artist]]):
+    for patch in patches:
+        if patch in axes.lines:
+            axes.lines.remove(patch)
+        elif patch in axes.collections:
+            axes.collections.remove(patch)

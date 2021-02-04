@@ -58,8 +58,8 @@ def add_sin_demo(axes, builder=None):
         def provide_data(self, i, duration, frames_passed):
             return t, np.zeros_like(t), self.h
 
-        def draw_figure(self, i, data, ax, last_artists, **kwargs):
-            line = super().draw_figure(i, data, ax, last_artists, **kwargs)
+        def on_frame(self, i, data, ax, last_artists, **kwargs):
+            line = super().on_frame(i, data, ax, last_artists, **kwargs)
             line.set_alpha(self.get_progress(i))
             return line
 
@@ -77,8 +77,8 @@ def add_sin_demo(axes, builder=None):
         def provide_data(self, i, duration, frames_passed):
             return t, np.zeros_like(t), self.h
 
-        def draw_figure(self, i, data, ax, last_artists, **kwargs):
-            line = super().draw_figure(i, data, ax, last_artists, **kwargs)
+        def on_frame(self, i, data, ax, last_artists, **kwargs):
+            line = super().on_frame(i, data, ax, last_artists, **kwargs)
             line.set_alpha(1 - self.get_progress(i))
             return line
 
@@ -146,8 +146,8 @@ def surface_3d_demo(ax, builder=None):
             R = np.exp(1j * X * self.get_progress(i)) * Y
             return X, np.real(R), np.imag(R)
 
-        def draw_figure(self, i, data, ax, last_artists, **kwargs):
-            artists = super().draw_figure(i, data, ax, last_artists, **kwargs)
+        def on_frame(self, i, data, ax, last_artists, **kwargs):
+            artists = super().on_frame(i, data, ax, last_artists, **kwargs)
             artists.set_alpha(0.3)
             artists.set_color("grey")
             return artists
