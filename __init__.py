@@ -1,3 +1,3 @@
-from animation import *
-from html_utils import *
-from plt_utils import *
+from pltanimation import animation
+from pltanimation import html_utils
+from pltanimation import plt_utils
